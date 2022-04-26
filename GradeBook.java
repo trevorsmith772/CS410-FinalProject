@@ -19,4 +19,25 @@ public class GradeBook{
 		}
 		return null;
 	}
+
+    public static void main(String[] args) {
+		try {
+			// The newInstance() call is a work around for some broken Java implementations
+			Class.forName("com.mysql.jdbc.Driver").newInstance();
+			System.out.println();
+			System.out.println("JDBC driver loaded");
+			System.out.println();
+
+			Connection conn = makeConnection();
+			// runQuery(conn);
+
+			conn.close();
+			System.out.println();
+			System.out.println("Database [test db] connection closed");
+			System.out.println();
+		} catch (Exception ex) {
+			// handle the error
+			System.err.println(ex);
+		}
+	}
 }

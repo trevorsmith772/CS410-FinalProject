@@ -52,14 +52,15 @@ public class GradeBookApplication {
 //			System.err.println(ex);
 //		}
 	}
-	@Autowired
-	JdbcTemplate jdbc;
-
-	public void run(String... strings) throws Exception {
-		jdbc.execute("INSERT INTO classes (class_id) VALUES ('1') " +
-				"course_number = 'CS410', " +
-				"term = 'SP22', " +
-				"section_number = '001', "+
-				"description = 'Software Engineering', ");
-	}
+//	@Autowired
+//	JdbcTemplate jdbc;
+//
+//	@Override
+//	public void run(String... strings) throws Exception {
+////		jdbc.execute("INSERT INTO classes (class_id) VALUES ('1') " +
+////				"course_number = 'CS410', " +
+////				"term = 'SP22', " +
+////				"section_number = '001', "+
+////				"description = 'Software Engineering', ");
+////	}
 }

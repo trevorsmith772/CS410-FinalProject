@@ -3,6 +3,8 @@ package com.CS410.GradeBook;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.sql.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
 
 @SpringBootApplication
 public class GradeBookApplication {

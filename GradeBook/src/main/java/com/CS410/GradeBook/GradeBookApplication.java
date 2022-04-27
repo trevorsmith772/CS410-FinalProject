@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.*;
+import org.springframework.shell.standard.ShellMethod;
+import org.springframework.shell.standard.ShellComponent;
 
 
 @SpringBootApplication
@@ -21,4 +23,10 @@ public class GradeBookApplication implements CommandLineRunner {
 	public void run(String... strings) throws Exception {
 		jdbc.execute("INSERT INTO categories(category_id, name) VALUES (1,'bitch')");
 	}
+}
+
+
+@ShellComponent
+class PrimaryCommands {
+
 }

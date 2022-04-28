@@ -3,19 +3,27 @@ package com.CS410.GradeBook;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.sql.*;
+
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStyle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.*;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
+import org.springframework.stereotype.Component;
+import org.springframework.shell.jline.PromptProvider;
 import org.springframework.shell.standard.ShellComponent;
+import org.springframework.boot.Banner;
 
 
 @SpringBootApplication
 public class GradeBookApplication {
 	public static void main(String[] args) {
-		SpringApplication.run(GradeBookApplication.class, args);
+		SpringApplication application = new SpringApplication(GradeBookApplication.class);
+        //application.setBannerMode(Banner.Mode.OFF);
+        application.run(args);
 	}
 	// @Autowired
 	// JdbcTemplate jdbc;
@@ -41,14 +49,15 @@ class ClassManagement {
 
 	@ShellMethod("Create a class")
 	public String newClass(String courseNum, String term, int section, String description){
-		//TODO
-		return "";
+		jdbc.execute("INSERT INTO categories(category_id, name) VALUES (3,'hello')");
+		String msg = "Succesfully added class";
+		return msg;
 	}
 
 	@ShellMethod("List classes")
 	public String listClasses(){
-		//TODO
-		
+		jdbc.execute("INSERT INTO categories(category_id, name) VALUES (3,'hello')");
+		String msg = "Succesfully added class";
 		return "";
 	}
 
@@ -152,4 +161,16 @@ class GradeReporting{
 		//TODO
 		return "";
 	}
+}
+
+@Component
+class CustomPromptProvideer implements PromptProvider {
+
+	@Override
+	public AttributedString getPrompt() {
+		AttributedString prompt = new AttributedString("gradebook > ", 
+									AttributedStyle.DEFAULT.foreground(AttributedStyle.BLUE));
+		return new AttributedString(prompt);
+	}
+	
 }

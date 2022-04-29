@@ -3,11 +3,7 @@ package com.CS410.GradeBook;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import java.awt.Color;
-import java.lang.Thread.State;
 import java.sql.*;
-
-import javax.validation.constraints.Null;
 
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
@@ -20,9 +16,22 @@ import org.springframework.stereotype.Component;
 import org.springframework.shell.Availability;
 import org.springframework.shell.jline.PromptProvider;
 import org.springframework.shell.standard.ShellComponent;
-import org.springframework.boot.Banner;
+//import org.springframework.boot.Banner;
 
-
+/**
+ * @brief This application uses Spring Shell to provide a 
+ * 		command line shell interface for grade management.
+ * 		This application is currently only usable with an 
+ * 		SSH connection to onyx.boisestate.edu in order to 
+ * 		retrieve the JDBC connector and database, but can be
+ * 		configured with an alternate database and connector.
+ * 		This application was created for the CS410 Databases
+ * 		course at Boise State University.
+ * 
+ * @author Trevor Smith (trevorsmith772)
+ * @author Berto Cisneros (bertocisneros)
+ * @date 04/28/2022
+ */
 @SpringBootApplication
 public class GradeBookApplication {
 	public static void main(String[] args) {
@@ -33,23 +42,29 @@ public class GradeBookApplication {
 	}
 }
 
+/**
+ * Helper class to mainly provide current selected
+ * course that is used by other commands.
+ */
 class Helpers {
-
+	
+	// This int represents the class_id of the current selected course.
 	private static int selectedCourse = 0; // 0 is default value if no class is selected
 
+	/**
+	 * Getter for the selected course.
+	 * @return selectedCourse
+	 */
 	public static int getSelectedCourse() {
 		return selectedCourse;
 	}
 
+	/**
+	 * Setter for the selected course.
+	 * @param selectedCourse - class_id of the selected course
+	 */
 	public static void setSelectedCourse(int selectedCourse) {
 		Helpers.selectedCourse = selectedCourse;
-	}
-
-	public Availability availabilityCheck(){
-		if(selectedCourse == 0) {
-			return Availability.unavailable("No class selected");
-		}
-		return Availability.available();
 	}
 }
 
@@ -461,18 +476,52 @@ class ClassAndAssignmentManagement {
 	}
 
 	/**
-	 * 
-	 * @param name
-	 * @param category May need to change this parameter type
-	 * @param description
-	 * @param points
-	 * @return
+	 * Add a new assignment to the active class
+	 * @param name - e.g. Homework 3
+	 * @param category - e.g. Homework
+	 * @param description - SQL Practice
+	 * @param points - 80
+	 * @throws SQLException
 	 */
 	@ShellMethod("Add assignment")
 	@ShellMethodAvailability("availabilityCheck")
-	public String addAssignment(String name, int category, String description, int points){
+	public void addAssignment(String name, String category, String description, int points) throws SQLException{
 		//TODO
-		return "";
+		// get category_id of category
+		String query = "SELECT category_id " +  
+						"FROM categories " +
+						"WHERE name = \"" + category + "\"";
+		Connection con = jdbc.getDataSource().getConnection();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(rs.next()) {
+				int catID = rs.getInt("category_id");
+				// add assignment to assignments table
+				String insert = "INSERT INTO assignments (name, description, point_value, categories_id, class_id) "
+								+ "VALUES (\"" + name + "\", " + description + ", " + points + ", " + catID + ", " 
+								+ Helpers.getSelectedCourse() + ")";
+				try {
+					con.setAutoCommit(false);
+					Statement stmt2 = con.createStatement();
+					stmt2.executeUpdate(insert);
+					con.commit();
+					System.out.println("Assignment created");
+				} catch (SQLException e) {
+					System.out.println("Error: " + e);
+				}
+				finally {
+					con.setAutoCommit(true);
+					con.close();
+				}
+			}
+			else {
+				System.out.println("Category not found. Use 'addCategory' to add a new category.");
+			}
+		}
+		catch (SQLException e){
+			System.out.println("Error: " + e);
+			con.close();
+		}
 	}
 }
 /**
@@ -500,54 +549,111 @@ class StudentManagement{
 	 * If the student already exists, enroll them in the class; 
 	 * if the name provided does not match their stored name, 
 	 * update the name but print a warning that the name is being changed.
-	 * @param username
-	 * @param studentID
-	 * @param lastName
-	 * @param firstName
-	 * @return
+	 * @param username - e.g. trevorsmith772
+	 * @param studentID - e.g. 116572
+	 * @param lastName - e.g. Smith
+	 * @param firstName - e.g. Trevor
 	 */
 	@ShellMethod("Add student")
 	@ShellMethodAvailability("availabilityCheck")
-	public void addStudent(String username, @ShellOption(defaultValue = "") int studentID,
-							 @ShellOption(defaultValue = "") String lastName, @ShellOption(defaultValue = "") String firstName) throws SQLException{
+	public void addStudent(String username, int studentID,
+							String lastName, String firstName) throws SQLException{
 
-		String insert = "INSERT INTO students (username, student_id, last_name, first_name) " +
-						"VALUES (\"" + username + "\", " + studentID + ", \"" + lastName + "\", \"" + firstName + "\")";
-
+		String query = "SELECT student_id FROM students WHERE student_id = " + studentID;
+		String fullName = firstName + " " + lastName;
+		
 		Connection con = jdbc.getDataSource().getConnection();
-		try {
-			con.setAutoCommit(false);
-			Statement stmt = con.createStatement();
-			stmt.executeUpdate(insert);
-			con.commit();
-			System.out.println("Student added");
-		} catch (SQLException e) {
-			System.out.println("Error: " + e);
-		}
-		finally {
-			con.setAutoCommit(true);
-			con.close();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(rs.next()){
+				System.out.println("Student already exists");
+				String insert = "INSERT INTO enrolled_in (student_id, class_id) " +
+								"VALUES (" + studentID + ", " + Helpers.getSelectedCourse() + ")";
+
+				try {
+					con.setAutoCommit(false);
+					Statement stmt2 = con.createStatement();
+					stmt2.executeUpdate(insert);
+					con.commit();
+					System.out.println("Student added to class");
+				} catch (SQLException e) {
+					System.out.println("Error: " + e);
+				}
+				finally {
+					con.setAutoCommit(true);
+					con.close();
+				}
+				if(!fullName.equals(rs.getString("name"))){
+					System.out.println("Warning: Full name is being changed");
+					String update = "UPDATE students SET name = \"" + fullName + "\" WHERE student_id = " + studentID;
+					try {
+						con.setAutoCommit(false);
+						Statement stmt3 = con.createStatement();
+						stmt3.executeUpdate(update);
+						con.commit();
+						System.out.println("Full name updated");
+					} catch (SQLException e) {
+						System.out.println("Error: " + e);
+					}
+					finally {
+						con.setAutoCommit(true);
+						con.close();
+					}
+				}
+				
+			}
+			else {
+				String insert = "INSERT INTO students (student_id, username, name) " +
+								"VALUES (" + studentID + ", \"" + username + "\", \"" + fullName + "\")";
+				try {
+					con.setAutoCommit(false);
+					Statement stmt2 = con.createStatement();
+					stmt2.executeUpdate(insert);
+					con.commit();
+					System.out.println("Student added");
+				} catch (SQLException e) {
+					System.out.println("Error: " + e);
+				}
+				finally {
+					con.setAutoCommit(true);
+					con.close();
+				}
+				String insert2 = "INSERT INTO enrolled_in (student_id, class_id) " +
+								"VALUES (" + studentID + ", " + Helpers.getSelectedCourse() + ")";
+				try {
+					con.setAutoCommit(false);
+					Statement stmt3 = con.createStatement();
+					stmt3.executeUpdate(insert2);
+					con.commit();
+					System.out.println("Student added to class");
+				} catch (SQLException e) {
+					System.out.println("Error: " + e);
+				}
+				finally {
+					con.setAutoCommit(true);
+					con.close();
+				}
+			}
 		}
 	}
 
 	@ShellMethod("Show students")
 	@ShellMethodAvailability("availabilityCheck")
 	public void showStudents() throws SQLException {
-		String query = "SELECT username, last_name, first_name, student_id " +
+		String query = "SELECT username, name, student_id " +
 						"FROM students " +
 						"WHERE class_id = " + Helpers.getSelectedCourse();
 
 		Connection con = jdbc.getDataSource().getConnection();
-		System.out.println("Username | Last Name | First Name | Student ID");
+		System.out.println("Username | Name | Student ID");
 		try(Statement stmt = con.createStatement()){
 			ResultSet rs = stmt.executeQuery(query);
 			while(rs.next()){
 				String userName = rs.getString("username");
-				String lastName = rs.getString("last_name");
-				String firstName = rs.getString("first_name");
+				String name = rs.getString("name");
 				int studentID = rs.getInt("student_id");
 
-				System.out.println(userName + ", " + lastName + ", " + firstName + ", " + studentID);
+				System.out.println(userName + ", " + name + ", " + studentID);
 			}
 			con.close();
 		}

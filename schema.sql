@@ -25,8 +25,10 @@ CREATE TABLE assignments (
     description VARCHAR(255) NOT NULL,
     point_value int NOT NULL,
     categories_id int NOT NULL,
+    class_id int NOT NULL,
     
     FOREIGN KEY (categories_id) REFERENCES categories(category_ID)
+    FOREIGN KEY (class_id) REFERENCES classes(class_id)
 );
 
 CREATE TABLE enrolled_in (
@@ -55,14 +57,5 @@ CREATE TABLE weights (
     
     PRIMARY KEY(category_id, class_id),
 	FOREIGN KEY(category_id) REFERENCES categories(category_id),
-	FOREIGN KEY(class_id) REFERENCES classes(class_id)
-);
-
-CREATE TABLE curriculum (
-	assignment_id int NOT NULL,
-    class_id int NOT NULL,
-    
-    PRIMARY KEY(assignment_id, class_id),
-	FOREIGN KEY(assignment_id) REFERENCES assignments(assignment_id),
 	FOREIGN KEY(class_id) REFERENCES classes(class_id)
 );

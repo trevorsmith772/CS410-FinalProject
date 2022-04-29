@@ -78,7 +78,7 @@ class ClassManagement {
 	public void selectClass(String course, @ShellOption(defaultValue = "") String term, 
 							@ShellOption(defaultValue = "0") int section) throws SQLException{
 								
-		if(section != 0){
+		if(section != 0){	//user specified all parameters
 			String query = "SELECT class_id, course_number, term, description, section_number " 
 							+ "FROM classes "
 							+ "WHERE course_number = \"" + course + "\" "
@@ -118,7 +118,7 @@ class ClassManagement {
 				System.out.println("Error: " + e);
 				con.close();
 			}
-		} else if(!term.equals("")){
+		} else if(!term.equals("")){ //User specified course number and term
 			String query = "SELECT class_id, course_number, term, description, section_number "  
 							+ "FROM classes "
 							+ "WHERE course_number = \"" + course + "\" "
@@ -157,7 +157,7 @@ class ClassManagement {
 				System.out.println("Error: " + e);
 				con.close();
 			}
-		} else{
+		} else{ //User specified only the course number
 			String query = "SELECT class_id, course_number, term, description, section_number "  
 							+ "FROM classes "
 							+ "WHERE course_number = \"" + course + "\" "
@@ -224,7 +224,6 @@ class ClassManagement {
 			con.setAutoCommit(true);
 			con.close();
 		}
-		
 	}
 
 	/**
@@ -269,6 +268,11 @@ class ClassAndAssignmentManagement {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	/**
+	 * Used to check availability of a command
+	 * based on whether a class is activated.
+	 * @return availability of command
+	 */
 	public Availability availabilityCheck(){
 		if(Helpers.getSelectedCourse() == 0) {
 			return Availability.unavailable("no class is selected/active");
@@ -313,12 +317,38 @@ class ClassAndAssignmentManagement {
 		return "";
 	}
 
+	/**
+	 * Adds a category to the category table.
+	 * This is independent of a class.
+	 * @param name - e.g. Homework
+	 * @throws SQLException
+	 */
 	@ShellMethod("Add new category")
-	public String addCategory(String name){
-		//INSERT INTO weights(category_id, class_id, weight) VALUES (1, 2, 50);
-		return "";
+	public void addCategory(String name) throws SQLException{
+		String insert = "INSERT INTO GradeBook.categories (name) "
+						+ "VALUES (\"" + name + "\")";
+		Connection con= jdbc.getDataSource().getConnection();
+		try {
+			con.setAutoCommit(false);
+			Statement stmt = con.createStatement();
+			stmt.executeUpdate(insert);
+			con.commit();
+			System.out.println("Category created");
+		} catch (SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.setAutoCommit(true);
+			con.close();
+		}
 	}
 	
+	/**
+	 * Shows all assignments in active class with 
+	 * their respective categories and their point values
+	 * @return
+	 * @throws SQLException
+	 */
 	@ShellMethod("Show assignments")
 	@ShellMethodAvailability("availabilityCheck")
 	public String showAssignments() throws SQLException{
@@ -370,6 +400,11 @@ class ClassAndAssignmentManagement {
 @ShellComponent
 class StudentManagement{
 	
+	/**
+	 * Used to check availability of a command
+	 * based on whether a class is activated.
+	 * @return availability of command
+	 */
 	public Availability availabilityCheck(){
 		if(Helpers.getSelectedCourse() == 0) {
 			return Availability.unavailable("no class is selected/active");
@@ -414,6 +449,11 @@ class StudentManagement{
 @ShellComponent
 class GradeReporting{
 	
+	/**
+	 * Used to check availability of a command
+	 * based on whether a class is activated.
+	 * @return availability of command
+	 */
 	public Availability availabilityCheck(){
 		if(Helpers.getSelectedCourse() == 0) {
 			return Availability.unavailable("no class is selected/active");
@@ -436,6 +476,9 @@ class GradeReporting{
 	}
 }
 
+/**
+ * Customizes the shell prompt
+ */
 @Component
 class CustomPromptProvideer implements PromptProvider {
 	@Autowired

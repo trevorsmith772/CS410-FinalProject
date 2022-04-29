@@ -59,6 +59,21 @@ class ClassManagement {
 	@Autowired
 	JdbcTemplate jdbc;
 	
+	/**
+	 * Activates specified class to be used in other commands.
+	 * 
+	 * Specifying only the course parameter will select the most recent 
+	 * term, and fail if there are multiple sections in that term.
+	 * 
+	 * Specifying the course and term will fail if there are multiple
+	 * sections in that term.
+	 * 
+	 * Specifying all parameters will only fail if that class is not found.
+	 * @param course - e.g. CS410
+	 * @param term - e.g. Fa19
+	 * @param section - e.g. 1
+	 * @throws SQLException
+	 */
 	@ShellMethod("Activate a class")
 	public void selectClass(String course, @ShellOption(defaultValue = "") String term, 
 							@ShellOption(defaultValue = "0") int section) throws SQLException{
@@ -183,11 +198,33 @@ class ClassManagement {
 		}
 	}
 
+	/**
+	 * This method is used to add a new class to the database.
+	 * @param courseNum - e.g. CS410
+	 * @param term - e.g. Fa19
+	 * @param section - e.g. 1
+	 * @param description - e.g. Databases
+	 * @throws SQLException
+	 */
 	@ShellMethod("Create a class")
-	public String newClass(String courseNum, String term, int section, String description){
-		String query = "INSERT INTO classes (course_number, term, section, description) "
+	public void newClass(String courseNum, String term, int section, String description) throws SQLException{
+		String insert = "INSERT INTO GradeBook.classes (course_number, term, section_number, description) "
 						+ "VALUES (\"" + courseNum + "\", \"" + term + "\", " + section + ", \"" + description + "\")";
-		return query;
+		Connection con= jdbc.getDataSource().getConnection();
+		try {
+			con.setAutoCommit(false);
+			Statement stmt = con.createStatement();
+			stmt.executeUpdate(insert);
+			con.commit();
+			System.out.println("Class created");
+		} catch (SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.setAutoCommit(true);
+			con.close();
+		}
+		
 	}
 
 	/**
@@ -239,6 +276,11 @@ class ClassAndAssignmentManagement {
 		return Availability.available();
 	}
 
+	/**
+	 * Shows all the categories for the activated class
+	 * along with the weights for each category
+	 * @throws SQLException
+	 */
 	@ShellMethod("Show categories")
 	@ShellMethodAvailability("availabilityCheck")
 	public void showCategories() throws SQLException{
@@ -378,7 +420,7 @@ class GradeReporting{
 		}
 		return Availability.available();
 	}
-	
+
 	@ShellMethod("Show student's grades")
 	@ShellMethodAvailability("availabilityCheck")
 	public String studentGrades(String username){

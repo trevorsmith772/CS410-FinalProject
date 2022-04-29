@@ -559,7 +559,7 @@ class StudentManagement{
 	public void addStudent(String username, int studentID,
 							String lastName, String firstName) throws SQLException{
 
-		String query = "SELECT student_id FROM students WHERE student_id = " + studentID;
+		String query = "SELECT students.name FROM students WHERE student_id = " + studentID;
 		String fullName = firstName + " " + lastName;
 		
 		Connection con = jdbc.getDataSource().getConnection();
@@ -567,17 +567,39 @@ class StudentManagement{
 			ResultSet rs = stmt.executeQuery(query);
 			if(rs.next()){
 				System.out.println("Student already exists");
-				// check if student is already enrolled in class
+				
+				// check if student's name matches
+				if(!fullName.equals(rs.getString("name"))){
+					System.out.println("Warning: Full name is being changed");
+					String update = "UPDATE students SET name = \"" + fullName + "\" WHERE student_id = " + studentID;
+					try {
+						con.setAutoCommit(false);
+						Statement stmt3 = con.createStatement();
+						stmt3.executeUpdate(update);
+						con.commit();
+						System.out.println("Full name updated");
+					} catch (SQLException e) {
+						System.out.println("Error: " + e);
+					}
+					finally {
+						con.setAutoCommit(true);
+						con.close();
+					}
+				}
+
+				// check if student is already enrolled
 				String query2 = "SELECT enrolled_in.student_id FROM students, classes, enrolled_in " +
 								"WHERE students.student_id = enrolled_in.student_id " +
 								"AND classes.class_id = enrolled_in.class_id " +
 								"AND students.student_id = " + studentID + " " +
 								"AND classes.class_id = " + Helpers.getSelectedCourse();
-				ResultSet rs2 = stmt.executeQuery(query2);
+				con = jdbc.getDataSource().getConnection();
+				Statement stmtX = con.createStatement();
+				ResultSet rs2 = stmtX.executeQuery(query2);
 				if(rs2.next()){
 					System.out.println("Student already enrolled in class");
-					con.setAutoCommit(true);
 					con.close();
+					return;
 				}
 				else {
 					// enroll student in class
@@ -597,24 +619,6 @@ class StudentManagement{
 						con.close();
 					}
 				}
-				if(!fullName.equals(rs.getString("name"))){
-					System.out.println("Warning: Full name is being changed");
-					String update = "UPDATE students SET name = \"" + fullName + "\" WHERE student_id = " + studentID;
-					try {
-						con.setAutoCommit(false);
-						Statement stmt3 = con.createStatement();
-						stmt3.executeUpdate(update);
-						con.commit();
-						System.out.println("Full name updated");
-					} catch (SQLException e) {
-						System.out.println("Error: " + e);
-					}
-					finally {
-						con.setAutoCommit(true);
-						con.close();
-					}
-				}
-				
 			}
 			else {
 				String insert = "INSERT INTO students (student_id, username, name) " +
@@ -655,9 +659,11 @@ class StudentManagement{
 	@ShellMethod("Show students")
 	@ShellMethodAvailability("availabilityCheck")
 	public void showStudents() throws SQLException {
-		String query = "SELECT username, name, student_id " +
-						"FROM students " +
-						"WHERE class_id = " + Helpers.getSelectedCourse();
+		String query = "username, name, students.student_id " +
+						"FROM students, enrolled_in, classes " +
+						"WHERE students.student_id = enrolled_in.student_id " +
+						"AND classes.class_id = enrolled_in.class_id " +
+						"AND class_id = " + Helpers.getSelectedCourse();
 
 		Connection con = jdbc.getDataSource().getConnection();
 		System.out.println("Username | Name | Student ID");

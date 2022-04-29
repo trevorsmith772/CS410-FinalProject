@@ -310,11 +310,92 @@ class ClassAndAssignmentManagement {
 		}
 	}
 
-	@ShellMethod("Add category to class with weight")
+	/**
+	 * Adds a category with specified weight to active class.
+	 * If this category is new for the database, it will be added 
+	 * to the categories table. Otherwise, it will just add the 
+	 * weighted relationship with the class to the weights table.
+	 * @param name - e.g. Homework
+	 * @param weight - e.g. 20 (as in 20%)
+	 * @throws SQLException
+	 */
+	@ShellMethod("Add category to class with specified weight")
 	@ShellMethodAvailability("availabilityCheck")
-	public String addCategoryWithWeight(String name, double weight){
-		//TODO
-		return "";
+	public void addCategoryWithWeight(String name, double weight) throws SQLException{
+		String query = "SELECT category_id " +  
+						"FROM categories " +
+						"WHERE name = \"" + name + "\"";
+		Connection con = jdbc.getDataSource().getConnection();
+
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(rs.next()) { //category already exists
+				int catID = rs.getInt("category_id");
+				String insert = "INSERT INTO weights (class_id, category_id, weight) "
+								+ "VALUES (" + Helpers.getSelectedCourse() + ", " + catID + ", " + weight + ")";
+				try {
+					con.setAutoCommit(false);
+					Statement stmt2 = con.createStatement();
+					stmt2.executeUpdate(insert);
+					con.commit();
+					System.out.println("Category added");
+				} catch (SQLException e) {
+					System.out.println("Error: " + e);
+				}
+				finally {
+					con.setAutoCommit(true);
+					con.close();
+				}
+			}
+			else {	// category is new
+				// add category to categories table
+				String insert = "INSERT INTO categories (name) "
+								+ "VALUES (\"" + name + "\")";
+				try {
+					con.setAutoCommit(false);
+					Statement stmt2 = con.createStatement();
+					stmt2.executeUpdate(insert);
+					con.commit();
+					System.out.println("Category created");
+				} catch (SQLException e) {
+					System.out.println("Error: " + e);
+				}
+				finally {
+					con.setAutoCommit(true);
+					con.close();
+				}
+				// get category_id of new category
+				query = "SELECT category_id " +  
+						"FROM categories " +
+						"WHERE name = \"" + name + "\"";
+				con = jdbc.getDataSource().getConnection();
+				try (Statement stmt3 = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+					ResultSet rs2 = stmt3.executeQuery(query);
+					if(rs2.next()) {
+						int catID = rs2.getInt("category_id");
+						// add weighted relationship to weights table
+						String insert2 = "INSERT INTO weights (class_id, category_id, weight) "
+										+ "VALUES (" + Helpers.getSelectedCourse() + ", " + catID + ", " + weight + ")";
+						try {
+							con.setAutoCommit(false);
+							Statement stmt4 = con.createStatement();
+							stmt4.executeUpdate(insert2);
+							con.commit();
+							System.out.println("Category added");
+						} catch (SQLException e) {
+							System.out.println("Error: " + e);
+						}
+						finally {
+							con.setAutoCommit(true);
+							con.close();
+						}
+					}
+				}
+			} 
+		}catch (Exception e) {
+			System.out.println("Error: " + e);
+			con.close();
+		}
 	}
 
 	/**
@@ -399,7 +480,9 @@ class ClassAndAssignmentManagement {
  */
 @ShellComponent
 class StudentManagement{
-	
+	@Autowired
+	JdbcTemplate jdbc;
+
 	/**
 	 * Used to check availability of a command
 	 * based on whether a class is activated.
@@ -425,17 +508,53 @@ class StudentManagement{
 	 */
 	@ShellMethod("Add student")
 	@ShellMethodAvailability("availabilityCheck")
-	public String addStudent(String username, @ShellOption(defaultValue = "") int studentID,
-							 @ShellOption(defaultValue = "") String lastName, @ShellOption(defaultValue = "") String firstName){
-		//TODO
-		return "";
+	public void addStudent(String username, @ShellOption(defaultValue = "") int studentID,
+							 @ShellOption(defaultValue = "") String lastName, @ShellOption(defaultValue = "") String firstName) throws SQLException{
+
+		String insert = "INSERT INTO students (username, student_id, last_name, first_name) " +
+						"VALUES (\"" + username + "\", " + studentID + ", \"" + lastName + "\", \"" + firstName + "\")";
+
+		Connection con = jdbc.getDataSource().getConnection();
+		try {
+			con.setAutoCommit(false);
+			Statement stmt = con.createStatement();
+			stmt.executeUpdate(insert);
+			con.commit();
+			System.out.println("Student added");
+		} catch (SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.setAutoCommit(true);
+			con.close();
+		}
 	}
 
 	@ShellMethod("Show students")
 	@ShellMethodAvailability("availabilityCheck")
-	public String showStudents(@ShellOption(defaultValue = "") String username){
-		//TODO
-		return "";
+	public void showStudents() throws SQLException {
+		String query = "SELECT username, last_name, first_name, student_id " +
+						"FROM students " +
+						"WHERE class_id = " + Helpers.getSelectedCourse();
+
+		Connection con = jdbc.getDataSource().getConnection();
+		System.out.println("Username | Last Name | First Name | Student ID");
+		try(Statement stmt = con.createStatement()){
+			ResultSet rs = stmt.executeQuery(query);
+			while(rs.next()){
+				String userName = rs.getString("username");
+				String lastName = rs.getString("last_name");
+				String firstName = rs.getString("first_name");
+				int studentID = rs.getInt("student_id");
+
+				System.out.println(userName + ", " + lastName + ", " + firstName + ", " + studentID);
+			}
+			con.close();
+		}
+		catch (SQLException e){
+			System.out.println("Error: " + e);
+			con.close();
+		}
 	}
 
 	@ShellMethod("Assign Grade")

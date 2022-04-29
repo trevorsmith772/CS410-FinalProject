@@ -497,8 +497,8 @@ class ClassAndAssignmentManagement {
 			if(rs.next()) {
 				int catID = rs.getInt("category_id");
 				// add assignment to assignments table
-				String insert = "INSERT INTO assignments (name, description, point_value, categories_id, class_id) "
-								+ "VALUES (\"" + name + "\", " + description + ", " + points + ", " + catID + ", " 
+				String insert = "INSERT INTO GradeBook.assignments (name, description, point_value, categories_id, class_id) "
+								+ "VALUES (\"" + name + "\", \"" + description + "\", " + points + ", " + catID + ", " 
 								+ Helpers.getSelectedCourse() + ")";
 				try {
 					con.setAutoCommit(false);
@@ -659,7 +659,7 @@ class StudentManagement{
 	@ShellMethod("Show students")
 	@ShellMethodAvailability("availabilityCheck")
 	public void showStudents() throws SQLException {
-		String query = "username, name, students.student_id " +
+		String query = "SELECT username, name, students.student_id " +
 						"FROM students, enrolled_in, classes " +
 						"WHERE students.student_id = enrolled_in.student_id " +
 						"AND classes.class_id = enrolled_in.class_id " +

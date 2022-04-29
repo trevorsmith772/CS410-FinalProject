@@ -567,21 +567,35 @@ class StudentManagement{
 			ResultSet rs = stmt.executeQuery(query);
 			if(rs.next()){
 				System.out.println("Student already exists");
-				String insert = "INSERT INTO enrolled_in (student_id, class_id) " +
-								"VALUES (" + studentID + ", " + Helpers.getSelectedCourse() + ")";
-
-				try {
-					con.setAutoCommit(false);
-					Statement stmt2 = con.createStatement();
-					stmt2.executeUpdate(insert);
-					con.commit();
-					System.out.println("Student added to class");
-				} catch (SQLException e) {
-					System.out.println("Error: " + e);
-				}
-				finally {
+				// check if student is already enrolled in class
+				String query2 = "SELECT enrolled_in.student_id FROM students, classes, enrolled_in " +
+								"WHERE students.student_id = enrolled_in.student_id " +
+								"AND classes.class_id = enrolled_in.class_id " +
+								"AND students.student_id = " + studentID + " " +
+								"AND classes.class_id = " + Helpers.getSelectedCourse();
+				ResultSet rs2 = stmt.executeQuery(query2);
+				if(rs2.next()){
+					System.out.println("Student already enrolled in class");
 					con.setAutoCommit(true);
 					con.close();
+				}
+				else {
+					// enroll student in class
+					String insert = "INSERT INTO enrolled_in (student_id, class_id) " +
+									"VALUES (" + studentID + ", " + Helpers.getSelectedCourse() + ")";
+					try {
+						con.setAutoCommit(false);
+						Statement stmt2 = con.createStatement();
+						stmt2.executeUpdate(insert);
+						con.commit();
+						System.out.println("Student enrolled in class");
+					} catch (SQLException e) {
+						System.out.println("Error: " + e);
+					}
+					finally {
+						con.setAutoCommit(true);
+						con.close();
+					}
 				}
 				if(!fullName.equals(rs.getString("name"))){
 					System.out.println("Warning: Full name is being changed");
@@ -621,6 +635,7 @@ class StudentManagement{
 				String insert2 = "INSERT INTO enrolled_in (student_id, class_id) " +
 								"VALUES (" + studentID + ", " + Helpers.getSelectedCourse() + ")";
 				try {
+					con = jdbc.getDataSource().getConnection();
 					con.setAutoCommit(false);
 					Statement stmt3 = con.createStatement();
 					stmt3.executeUpdate(insert2);

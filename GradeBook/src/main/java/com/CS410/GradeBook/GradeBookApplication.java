@@ -876,6 +876,9 @@ class StudentManagement{
 
 @ShellComponent
 class GradeReporting{
+
+	@Autowired
+	private JdbcTemplate jdbc;
 	
 	/**
 	 * Used to check availability of a command
@@ -901,12 +904,93 @@ class GradeReporting{
 		
 	}
 
+	/**
+	 * show the current class’s gradebook: students (username, student ID, and name), 
+	 * along with their total grades in the class.
+	 */
 	@ShellMethod("Show gradebook")
 	@ShellMethodAvailability("availabilityCheck")
-	public String gradebook(){
-		//TODO
-		return "";
-	}
+	public void gradebook() throws SQLException {
+		// String query = "SELECT s.student_id, s.username, s.name, i.point_value, g.grade "
+		// 				+ "FROM grades g " 
+		// 				+ "JOIN students s ON g.student_id = s.student_id "
+		// 				+ "JOIN assignments i ON g.assignment_id = i.assignment_id "
+		// 				+ "JOIN enrolled_in enr ON s.student_id = enr.student_id "
+		// 				+ "JOIN weights wt ON i.categories_id = wt.category_id "
+		// 				+ "JOIN classes c ON wt.class_id = c.class_id "
+		// 				+ "JOIN enrolled_in ON c.class_id = enr.class_id " 
+		// 				+ "WHERE c.class_id = " + Helpers.getSelectedCourse() + " "
+		// 				+ "GROUP BY s.student_id, s.username, s.name, i.point_value, g.grade "
+		// 				+ "ORDER BY s.student_id";
+
+		String query = "SELECT s.student_id, s.username, s.name, i.point_value, g.grade "
+						+ "FROM assignments i " 
+						+ "LEFT JOIN grades g ON g.assignment_id = i.assignment_id "
+						+ "LEFT JOIN students s ON g.student_id = s.student_id  "
+						+ "LEFT JOIN enrolled_in enr ON s.student_id = enr.student_id "
+						+ "LEFT JOIN categories cat ON i.categories_id = cat.category_id "
+						+ "LEFT JOIN weights wt ON i.class_id = wt.class_id "
+						+ "LEFT JOIN classes c ON wt.class_id = c.class_id " 
+						+ "WHERE c.class_id = " + Helpers.getSelectedCourse() + " "
+						+ "GROUP BY s.student_id, s.username, s.name, i.point_value, g.grade "
+						+ "ORDER BY s.student_id DESC";
+
+
+		Connection con = jdbc.getDataSource().getConnection();
+		System.out.println("ID | Username | Name | Grade");
+
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			
+			int studID = 0;
+			String username = "";
+			String name = "";
+			double totalScore = 0;
+			int totalPointVal = 0;
+			double totalGrade = 0;
+			double attemptedGrade = 0;
+			
+			while(rs.next()){
+				if (rs.isFirst() || rs.getInt("student_id") != studID) {
+					if (rs.getInt("student_id") != studID && studID != 0) { //new student - print curr student and reset score
+						System.out.println(studID + " | " + username + " | " + name + " | " + totalScore/totalPointVal);
+						totalPointVal = 0;
+						totalScore = 0;
+					}
+					// Populate new student values
+					studID = rs.getInt("student_id");
+					username = rs.getString("username");
+					name = rs.getString("name");
+					totalScore += rs.getDouble("grade");
+					totalPointVal += rs.getInt("point_value");
+					
+				} else if (!rs.isLast()) {
+					if (rs.getInt("student_id") == studID) {
+						totalPointVal += rs.getInt("point_value");
+						totalScore += rs.getDouble("grade");
+					} 
+				} 
+				else {
+					System.out.println(studID + " | " + username + " | " + name + " | " + totalScore/totalPointVal);
+					studID = rs.getInt("student_id");
+					username = rs.getString("username");
+					name = rs.getString("name");
+					totalPointVal=0;
+					totalScore=0;
+					if (rs.getInt("student_id") == studID) {
+						totalPointVal += rs.getInt("point_value");
+						totalScore += rs.getDouble("grade");
+					} 
+					System.out.println(studID + " | " + username + " | " + name + " | " + totalScore/totalPointVal);
+				}
+			}
+		}
+			catch (SQLException e){
+				System.out.println("Error: " + e);
+				con.close();
+			}
+		}
+	
 }
 
 /**

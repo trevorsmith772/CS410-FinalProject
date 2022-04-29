@@ -273,14 +273,37 @@ class ClassAndAssignmentManagement {
 
 	@ShellMethod("Add new category")
 	public String addCategory(String name){
-		//TODO
+		//INSERT INTO weights(category_id, class_id, weight) VALUES (1, 2, 50);
 		return "";
 	}
 	
 	@ShellMethod("Show assignments")
 	@ShellMethodAvailability("availabilityCheck")
-	public String showAssignments(){
-		//TODO
+	public String showAssignments() throws SQLException{
+		String query = "SELECT assignments.name, point_value, categories.name " +  
+						"FROM assignments, categories, classes, curriculum " +
+						"WHERE assignments.assignment_id = curriculum.assignment_id " +
+						"AND classes.class_id = curriculum.class_id " +
+						"AND categories.category_id = assignments.categories_id " +
+						"AND classes.class_id = " + Helpers.getSelectedCourse();
+
+		Connection con = jdbc.getDataSource().getConnection();
+		System.out.println("Assignment | Point Value | Category");
+		try(Statement stmt = con.createStatement()){
+			ResultSet rs = stmt.executeQuery(query);
+			while(rs.next()){
+				String assName = rs.getString("assignments.name");
+				int point_value = rs.getInt("point_value");
+				String catName = rs.getString("categories.name");
+
+				System.out.println(assName + ", " + point_value + ", " + catName);
+			}
+			con.close();
+		}
+		catch (SQLException e){
+			System.out.println("Error: " + e);
+			con.close();
+		}
 		return "";
 	}
 

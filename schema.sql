@@ -57,3 +57,12 @@ CREATE TABLE weights (
 	FOREIGN KEY(category_id) REFERENCES categories(category_id),
 	FOREIGN KEY(class_id) REFERENCES classes(class_id)
 );
+
+CREATE TABLE curriculum (
+	assignment_id int NOT NULL,
+    class_id int NOT NULL,
+    
+    PRIMARY KEY(assignment_id, class_id),
+	FOREIGN KEY(assignment_id) REFERENCES assignments(assignment_id),
+	FOREIGN KEY(class_id) REFERENCES classes(class_id)
+);

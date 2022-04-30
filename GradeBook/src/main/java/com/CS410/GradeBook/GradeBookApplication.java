@@ -4,6 +4,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStyle;
@@ -800,7 +805,8 @@ class StudentManagement{
 						"FROM grades, assignments, students " + 
 						"WHERE grades.assignment_id = assignments.assignment_id " +
 						"AND students.student_id = grades.student_id " +
-						"AND assignments.name = \"" + assignmentname + "\" ";
+						"AND assignments.name = \"" + assignmentname + "\" " +
+						"AND username = \"" + username + "\"";
 
 		Connection con = jdbc.getDataSource().getConnection();
 
@@ -876,10 +882,10 @@ class StudentManagement{
 
 @ShellComponent
 class GradeReporting{
-
+  
 	@Autowired
-	private JdbcTemplate jdbc;
-	
+	JdbcTemplate jdbc;
+
 	/**
 	 * Used to check availability of a command
 	 * based on whether a class is activated.
@@ -892,16 +898,193 @@ class GradeReporting{
 		return Availability.available();
 	}
 
+	public HashMap<String, Double> getTotals (String username, String category) throws SQLException {
+		HashMap<String, Double> totals = new HashMap<String, Double>();
+
+		/* Get subtotal*/
+		String query = "SELECT SUM(grade) " +
+					"FROM assignments a, grades g, students s, categories " +
+					"WHERE a.assignment_id = g.assignment_id " +
+					"AND g.student_id = s.student_id " +
+					"AND username = \"" + username + "\" " +
+					"AND a.categories_id = categories.category_id " +
+					"AND categories.name = \"" + category + "\" " +
+					"AND a.class_id = " + Helpers.getSelectedCourse();
+
+		Connection con = jdbc.getDataSource().getConnection();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(rs.next()) {
+				totals.put("Subtotal", rs.getDouble(1));
+			}
+		}
+		catch(SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.close();
+		}
+		/* Get graded assignments possible point total */
+		query = "SELECT SUM(point_value) " +
+				"FROM (SELECT a.assignment_id, point_value " +
+						"FROM assignments a " +
+						"LEFT JOIN categories c ON c.category_id = a.categories_id " +
+						"RIGHT JOIN grades g ON g.assignment_id = a.assignment_id " +
+						"WHERE a.class_id = " + Helpers.getSelectedCourse() + " " +
+						"AND c.name = \"" + category + "\" " +
+						"GROUP BY(a.assignment_id))t1";
+		con = jdbc.getDataSource().getConnection();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(rs.next()) {
+				totals.put("Attempted total", rs.getDouble(1));
+			}
+		}
+		catch(SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.close();
+		}
+
+		/* Get ungraded assignments possible point total */
+		query = "SELECT SUM(point_value) " +
+				"FROM assignments a " +
+				"LEFT JOIN categories c ON c.category_id = a.categories_id " +
+				"WHERE class_id = " + Helpers.getSelectedCourse() +
+				" AND c.name = \"" + category + "\"";
+		con = jdbc.getDataSource().getConnection();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(rs.next()) {
+				totals.put("Ungraded total", rs.getDouble(1));
+			}
+		}
+		catch(SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.close();
+		}
+
+		return totals;
+	}
+
+	public void printGrades(ArrayList<HashMap<String, Double>> maps, Map<String, Integer> categories) {
+		double attemptedSum = 0;
+		double totalSum = 0;
+		int iter = 0;
+		List<Integer> weights = new ArrayList<Integer>(categories.values());
+		for(HashMap<String, Double> map : maps) {
+			attemptedSum += (map.get("Subtotal") / map.get("Attempted total")) * weights.get(iter);
+			totalSum += (map.get("Subtotal") / map.get("Ungraded total")) * weights.get(iter);
+			iter++;
+		}
+		System.out.println("Attempted grade: " + attemptedSum + "%");
+		System.out.println("Total grade: " + totalSum + "%");
+	}
+
 	/**
 	 * show student’s current grade: all assignments, visually grouped 
 	 * by category, with the student’s grade (if they have one). Show subtotals for each category, 
 	 * along with the overall grade in the class.
 	 * @param - username - e.g. trevorsmith772
+	 * @throws SQLException
 	 */
 	@ShellMethod("Show student's grades")
 	@ShellMethodAvailability("availabilityCheck")
-	public void studentGrades(String username){
+	public void studentGrades(String username) throws SQLException{
 		
+		/* Check if student is enrolled in active class */
+		String query = "SELECT class_id " +
+						"FROM students, enrolled_in " +
+						"WHERE students.username = \"" + username + "\" " +
+						"AND enrolled_in.class_id = " + Helpers.getSelectedCourse() +
+						" AND students.student_id = enrolled_in.student_id";
+		Connection con = jdbc.getDataSource().getConnection();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			if(!rs.next()) {
+				System.out.println("Error: Student is not enrolled in the active class.");
+				return;
+			}
+		} catch (SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.close();
+		}
+
+		/* Map categories and weights that are in current class */
+		Map<String, Integer> categories = new HashMap<String, Integer>();
+		query = "SELECT categories.name, weight " +  
+				"FROM categories, weights " +
+				"WHERE weights.category_id=categories.category_id " +
+				"AND weights.class_id = " + Helpers.getSelectedCourse();
+		con = jdbc.getDataSource().getConnection();
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+			categories = new HashMap<String, Integer>();
+			while(rs.next()) {
+				categories.put(rs.getString("name"), rs.getInt("weight"));
+			}
+		}
+		catch (SQLException e) {
+			System.out.println("Error: " + e);
+		}
+		finally {
+			con.close();
+		}
+		if(categories.size() == 0) {
+			System.out.println("Error: No assignemnts found for this class");
+			return;
+		}
+
+		/* Confirmed that student is enrolled in active class and the class has categories */
+		System.out.println("Grades for " + username + ":");
+		System.out.println("Row entries are in the format: assignment, points received\n");
+
+		/* Iterate through each category in class */
+		// key = category name, value = weight
+		ArrayList<HashMap<String, Double>> maps = new ArrayList<>();
+		for (Map.Entry<String, Integer> mapElement : categories.entrySet()) {
+			System.out.println(mapElement.getKey().toUpperCase() + " -- weight: " + mapElement.getValue() + "%");
+			System.out.println("-----------------------------------------------------");
+			query = "SELECT assignments.name, grade " +
+					"FROM " + 
+					"(SELECT a.name, grade, a.categories_id " +
+					"FROM assignments a, grades g, students s, categories " +
+					"WHERE a.assignment_id = g.assignment_id " +
+					"AND g.student_id = s.student_id " +
+					"AND username = \"" + username + "\" " +
+					"AND a.categories_id = categories.category_id " +
+					"AND categories.name = \"" + mapElement.getKey() + "\")t1 " +
+					"RIGHT JOIN assignments ON t1.name = assignments.name " +
+					"JOIN categories ON categories.category_id = assignments.categories_id " +
+					"AND categories.name = \"" + mapElement.getKey() + "\" " +
+					"AND assignments.class_id = " + Helpers.getSelectedCourse();
+
+			con = jdbc.getDataSource().getConnection();
+			try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+				ResultSet rs = stmt.executeQuery(query);
+				while(rs.next()) {
+					System.out.println(rs.getString("name") + " -- " + rs.getString("grade"));
+				}
+			}
+			catch (SQLException e) {
+				System.out.println("Error: " + e);
+			}
+			finally {
+				con.close();
+			}
+
+			HashMap<String, Double> totals = getTotals(username, mapElement.getKey());
+			maps.add(totals);
+			System.out.println("Subtotal: " + totals.get("Subtotal"));
+
+			System.out.println();
+		}
+		printGrades(maps, categories);
 	}
 
 	/**

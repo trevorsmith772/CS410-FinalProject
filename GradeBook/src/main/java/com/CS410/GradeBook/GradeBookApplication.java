@@ -6,7 +6,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -898,6 +897,17 @@ class GradeReporting{
 		return Availability.available();
 	}
 
+	/**
+	 * Extracts the following values for specified student, category, and class:
+	 * 		- total points earned from assignments
+	 * 		- total points possible from GRADED assignments
+	 * 		- total points possible from ALL assignments
+	 * 
+	 * @param username - e.g. trevorsmith772
+	 * @param category - e.g. Homework
+	 * @return HashMap containing the above values
+	 * @throws SQLException
+	 */
 	public HashMap<String, Double> getTotals (String username, String category) throws SQLException {
 		HashMap<String, Double> totals = new HashMap<String, Double>();
 
@@ -970,6 +980,13 @@ class GradeReporting{
 		return totals;
 	}
 
+	/**
+	 * Calculates and prints the attempted grade and total grade
+	 * for a specified instance of a student and class
+	 * 
+	 * @param maps - List containing a hashmap for each category
+	 * @param categories - Map containing the categories and their respective weights
+	 */
 	public void printGrades(ArrayList<HashMap<String, Double>> maps, Map<String, Integer> categories) {
 		double attemptedSum = 0;
 		double totalSum = 0;

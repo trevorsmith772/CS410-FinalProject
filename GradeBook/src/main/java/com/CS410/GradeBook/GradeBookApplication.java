@@ -924,8 +924,6 @@ class GradeReporting{
 						+ "GROUP BY s.student_id, s.username, s.name, i.point_value, g.grade "
 						+ "ORDER BY s.student_id DESC";
 
-
-
 		Connection con = jdbc.getDataSource().getConnection();
 		System.out.format("%-20s%-20s%-20s%-40s%-40s\n", "ID", "Username", "Name", "Completed Assignment Grade", "Overall Grade");
 
@@ -939,6 +937,7 @@ class GradeReporting{
 			int totalPointVal = 0;
 			int attemptedPointVal = 0;
 
+			// Get total point value of the assignments in the class
 			String pval = "SELECT SUM(point_value) AS Total " +
 							"FROM assignments, categories, classes  " +
 							"WHERE assignments.class_id = classes.class_id " +
@@ -951,6 +950,7 @@ class GradeReporting{
 				totalPointVal = rs2.getInt("Total");
 			}
 			
+			// Go through each student and corresponding assignment to calculate grades
 			while(rs.next()){
 				if (rs.getInt("student_id") != studID && studID != 0) { //new student - print curr student and reset score
 					System.out.format("%-20d%-20s%-20s%-40f%-40f\n", studID, username, name, totalScore/attemptedPointVal, totalScore/totalPointVal);

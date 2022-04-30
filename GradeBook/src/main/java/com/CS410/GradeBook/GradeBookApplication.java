@@ -882,8 +882,10 @@ class StudentManagement{
 
 @ShellComponent
 class GradeReporting{
+  
 	@Autowired
 	JdbcTemplate jdbc;
+
 	/**
 	 * Used to check availability of a command
 	 * based on whether a class is activated.
@@ -1085,12 +1087,92 @@ class GradeReporting{
 		printGrades(maps, categories);
 	}
 
+	/**
+	 * show the current class’s gradebook: students (username, student ID, and name), 
+	 * along with their total grades in the class.
+	 */
 	@ShellMethod("Show gradebook")
 	@ShellMethodAvailability("availabilityCheck")
-	public String gradebook(){
-		//TODO
-		return "";
-	}
+	public void gradebook() throws SQLException {
+
+		String query = "SELECT s.student_id, s.username, s.name, i.point_value, g.grade "
+						+ "FROM assignments i " 
+						+ "LEFT JOIN grades g ON g.assignment_id = i.assignment_id "
+						+ "LEFT JOIN students s ON g.student_id = s.student_id  "
+						+ "LEFT JOIN enrolled_in enr ON s.student_id = enr.student_id "
+						+ "LEFT JOIN categories cat ON i.categories_id = cat.category_id "
+						+ "LEFT JOIN weights wt ON i.class_id = wt.class_id "
+						+ "LEFT JOIN classes c ON wt.class_id = c.class_id " 
+						+ "WHERE c.class_id = " + Helpers.getSelectedCourse() + " "
+						+ "GROUP BY s.student_id, s.username, s.name, i.point_value, g.grade "
+						+ "ORDER BY s.student_id DESC";
+
+
+
+		Connection con = jdbc.getDataSource().getConnection();
+		System.out.format("%-20s%-20s%-20s%-40s%-40s\n", "ID", "Username", "Name", "Completed Assignment Grade", "Overall Grade");
+
+		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
+			ResultSet rs = stmt.executeQuery(query);
+
+			int studID = 0;
+			String username = "";
+			String name = "";
+			double totalScore = 0;
+			int totalPointVal = 0;
+			int attemptedPointVal = 0;
+
+			String pval = "SELECT SUM(point_value) AS Total " +
+							"FROM assignments, categories, classes  " +
+							"WHERE assignments.class_id = classes.class_id " +
+							"AND assignments.categories_id = categories.category_id " +
+							"AND classes.class_id = " + Helpers.getSelectedCourse();
+			con = jdbc.getDataSource().getConnection();
+			Statement stmtX = con.createStatement();
+			ResultSet rs2 = stmtX.executeQuery(pval);
+			if(rs2.next()){
+				totalPointVal = rs2.getInt("Total");
+			}
+			
+			while(rs.next()){
+				if (rs.getInt("student_id") != studID && studID != 0) { //new student - print curr student and reset score
+					System.out.format("%-20d%-20s%-20s%-40f%-40f\n", studID, username, name, totalScore/attemptedPointVal, totalScore/totalPointVal);
+					attemptedPointVal = 0;
+					totalScore = 0;
+					// Populate new student values
+					studID = rs.getInt("student_id");
+					username = rs.getString("username");
+					name = rs.getString("name");
+					totalScore += rs.getDouble("grade");
+					attemptedPointVal += rs.getInt("point_value");
+				} 
+				else if (!rs.isLast()) {
+					if(rs.isFirst()){
+						// Populate new student values
+						studID = rs.getInt("student_id");
+						username = rs.getString("username");
+						name = rs.getString("name");
+						totalScore += rs.getDouble("grade");
+						attemptedPointVal += rs.getInt("point_value");
+					}
+					else {
+						// Add to score
+						totalScore += rs.getDouble("grade");
+						attemptedPointVal += rs.getInt("point_value");
+					}
+				} else {
+					attemptedPointVal += rs.getInt("point_value");
+					totalScore += rs.getDouble("grade");
+					System.out.format("%-20d%-20s%-20s%-40f%-40f\n", studID, username, name, totalScore/attemptedPointVal, totalScore/totalPointVal);
+				}
+			}
+		}
+			catch (SQLException e){
+				System.out.println("Error: " + e);
+				con.close();
+			}
+		}
+	
 }
 
 /**

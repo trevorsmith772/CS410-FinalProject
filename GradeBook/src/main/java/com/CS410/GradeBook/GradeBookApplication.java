@@ -911,17 +911,6 @@ class GradeReporting{
 	@ShellMethod("Show gradebook")
 	@ShellMethodAvailability("availabilityCheck")
 	public void gradebook() throws SQLException {
-		// String query = "SELECT s.student_id, s.username, s.name, i.point_value, g.grade "
-		// 				+ "FROM grades g " 
-		// 				+ "JOIN students s ON g.student_id = s.student_id "
-		// 				+ "JOIN assignments i ON g.assignment_id = i.assignment_id "
-		// 				+ "JOIN enrolled_in enr ON s.student_id = enr.student_id "
-		// 				+ "JOIN weights wt ON i.categories_id = wt.category_id "
-		// 				+ "JOIN classes c ON wt.class_id = c.class_id "
-		// 				+ "JOIN enrolled_in ON c.class_id = enr.class_id " 
-		// 				+ "WHERE c.class_id = " + Helpers.getSelectedCourse() + " "
-		// 				+ "GROUP BY s.student_id, s.username, s.name, i.point_value, g.grade "
-		// 				+ "ORDER BY s.student_id";
 
 		String query = "SELECT s.student_id, s.username, s.name, i.point_value, g.grade "
 						+ "FROM assignments i " 
@@ -936,52 +925,62 @@ class GradeReporting{
 						+ "ORDER BY s.student_id DESC";
 
 
+
 		Connection con = jdbc.getDataSource().getConnection();
-		System.out.println("ID | Username | Name | Grade");
+		System.out.format("%-20s%-20s%-20s%-40s%-40s\n", "ID", "Username", "Name", "Completed Assignment Grade", "Overall Grade");
 
 		try (Statement stmt = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)){
 			ResultSet rs = stmt.executeQuery(query);
-			
+
 			int studID = 0;
 			String username = "";
 			String name = "";
 			double totalScore = 0;
 			int totalPointVal = 0;
-			double totalGrade = 0;
-			double attemptedGrade = 0;
+			int attemptedPointVal = 0;
+
+			String pval = "SELECT SUM(point_value) AS Total " +
+							"FROM assignments, categories, classes  " +
+							"WHERE assignments.class_id = classes.class_id " +
+							"AND assignments.categories_id = categories.category_id " +
+							"AND classes.class_id = " + Helpers.getSelectedCourse();
+			con = jdbc.getDataSource().getConnection();
+			Statement stmtX = con.createStatement();
+			ResultSet rs2 = stmtX.executeQuery(pval);
+			if(rs2.next()){
+				totalPointVal = rs2.getInt("Total");
+			}
 			
 			while(rs.next()){
-				if (rs.isFirst() || rs.getInt("student_id") != studID) {
-					if (rs.getInt("student_id") != studID && studID != 0) { //new student - print curr student and reset score
-						System.out.println(studID + " | " + username + " | " + name + " | " + totalScore/totalPointVal);
-						totalPointVal = 0;
-						totalScore = 0;
-					}
+				if (rs.getInt("student_id") != studID && studID != 0) { //new student - print curr student and reset score
+					System.out.format("%-20d%-20s%-20s%-40f%-40f\n", studID, username, name, totalScore/attemptedPointVal, totalScore/totalPointVal);
+					attemptedPointVal = 0;
+					totalScore = 0;
 					// Populate new student values
 					studID = rs.getInt("student_id");
 					username = rs.getString("username");
 					name = rs.getString("name");
 					totalScore += rs.getDouble("grade");
-					totalPointVal += rs.getInt("point_value");
-					
-				} else if (!rs.isLast()) {
-					if (rs.getInt("student_id") == studID) {
-						totalPointVal += rs.getInt("point_value");
-						totalScore += rs.getDouble("grade");
-					} 
+					attemptedPointVal += rs.getInt("point_value");
 				} 
-				else {
-					System.out.println(studID + " | " + username + " | " + name + " | " + totalScore/totalPointVal);
-					studID = rs.getInt("student_id");
-					username = rs.getString("username");
-					name = rs.getString("name");
-					totalPointVal=0;
-					totalScore=0;
-					if (rs.getInt("student_id") == studID) {
-						totalPointVal += rs.getInt("point_value");
+				else if (!rs.isLast()) {
+					if(rs.isFirst()){
+						// Populate new student values
+						studID = rs.getInt("student_id");
+						username = rs.getString("username");
+						name = rs.getString("name");
 						totalScore += rs.getDouble("grade");
-					} 
-					System.out.println(studID + " | " + username + " | " + name + " | " + totalScore/totalPointVal);
+						attemptedPointVal += rs.getInt("point_value");
+					}
+					else {
+						// Add to score
+						totalScore += rs.getDouble("grade");
+						attemptedPointVal += rs.getInt("point_value");
+					}
+				} else {
+					attemptedPointVal += rs.getInt("point_value");
+					totalScore += rs.getDouble("grade");
+					System.out.format("%-20d%-20s%-20s%-40f%-40f\n", studID, username, name, totalScore/attemptedPointVal, totalScore/totalPointVal);
 				}
 			}
 		}

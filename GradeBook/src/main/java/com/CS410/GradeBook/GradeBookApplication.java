@@ -22,6 +22,8 @@ import org.springframework.shell.jline.PromptProvider;
 import org.springframework.shell.standard.ShellComponent;
 //import org.springframework.boot.Banner;
 
+/** This is a test to see if I can make changes from ipad using github web editor */
+
 /**
  * @brief This application uses Spring Shell to provide a 
  * 		command line shell interface for grade management.

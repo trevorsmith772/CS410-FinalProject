@@ -1,5 +1,5 @@
 #!/bin/bash
 cd GradeBook
 : > springshell-logs.log
-./mvnw spring-boot:run
+mvn -e spring-boot:run
  exit 0

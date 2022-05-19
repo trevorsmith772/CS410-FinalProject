@@ -268,7 +268,10 @@ class ClassManagement {
 				String desc = rs.getString("description");
 				int count = rs.getInt("COUNT(student_id)");
 
-				System.out.println(classID + ", " + courseNum + ", " + term + ", " + section + ", " + desc + ", " + count);
+				//Print the class info with spacing
+				System.out.println();
+				System.out.format("%-8d | %-13s | %-4s | %-7d | %-11s | %-10d %n", classID, courseNum, term, section, desc, count);
+				// System.out.println(classID + " | " + courseNum + " | " + term + " | " + section + " | " + desc + " | " + count);
 			}
 			con.close();
 		}
@@ -1067,15 +1070,17 @@ class GradeReporting{
 		for (Map.Entry<String, Integer> mapElement : categories.entrySet()) {
 			System.out.println(mapElement.getKey().toUpperCase() + " -- weight: " + mapElement.getValue() + "%");
 			System.out.println("-----------------------------------------------------");
+			/* Returns all assignments in the selected class and the grades the specified student has received for them.
+				This includes assignments that have not been graded yet */
 			query = "SELECT assignments.name, grade " +
 					"FROM " + 
 					"(SELECT a.name, grade, a.categories_id " +
-					"FROM assignments a, grades g, students s, categories " +
-					"WHERE a.assignment_id = g.assignment_id " +
-					"AND g.student_id = s.student_id " +
-					"AND username = \"" + username + "\" " +
-					"AND a.categories_id = categories.category_id " +
-					"AND categories.name = \"" + mapElement.getKey() + "\")t1 " +
+						"FROM assignments a, grades g, students s, categories " +
+						"WHERE a.assignment_id = g.assignment_id " +
+						"AND g.student_id = s.student_id " +
+						"AND username = \"" + username + "\" " +
+						"AND a.categories_id = categories.category_id " +
+						"AND categories.name = \"" + mapElement.getKey() + "\")t1 " +
 					"RIGHT JOIN assignments ON t1.name = assignments.name " +
 					"JOIN categories ON categories.category_id = assignments.categories_id " +
 					"AND categories.name = \"" + mapElement.getKey() + "\" " +
